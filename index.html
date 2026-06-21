@@ -322,7 +322,12 @@ function saveFbConfig(){
   const cfg=getFbConfig();
   if(cfg){
     document.getElementById('fb-status').textContent='Conectando con Firebase...';
-    initFirebase(cfg);
+    // Timeout fallback: if Firebase doesn't connect in 6 seconds, show app anyway
+    const fbTimeout=setTimeout(()=>{
+      if(!fbReady){console.warn('Firebase timeout, running in local mode');hideFbLoading();}
+    },6000);
+    const ok=initFirebase(cfg);
+    if(!ok){clearTimeout(fbTimeout);hideFbLoading();}
   }else{
     hideFbLoading();
   }
