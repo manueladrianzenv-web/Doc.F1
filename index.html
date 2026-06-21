@@ -316,15 +316,20 @@ function saveFbConfig(){
   }catch(e){showT('Config inválido: '+e.message,'err');}
 }
 
-// Auto-init on load — non-blocking
+// Auto-init on load — Firebase hardcoded, non-blocking
 (function(){
-  const cfg=getFbConfig();
-  if(cfg){
-    // Init Firebase in background, never block the UI
-    setTimeout(()=>{
-      try{initFirebase(cfg);}catch(e){console.warn('Firebase failed:',e);}
-    },100);
-  }
+  const HARDCODED_FB={
+    apiKey:"AIzaSyBcqqWIsGynHgdxlKUXGBos0CRQ3yhEyZk",
+    authDomain:"club-del-odio.firebaseapp.com",
+    databaseURL:"https://club-del-odio-default-rtdb.firebaseio.com",
+    projectId:"club-del-odio",
+    storageBucket:"club-del-odio.firebasestorage.app",
+    messagingSenderId:"854979877934",
+    appId:"1:854979877934:web:c864e8f3fe8f29b564d3bf"
+  };
+  setTimeout(()=>{
+    try{initFirebase(HARDCODED_FB);}catch(e){console.warn('Firebase failed:',e);}
+  },500);
 })();
 
 </script>
