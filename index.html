@@ -1355,6 +1355,7 @@ function showReveal(cards){
     },600);
   }
 }
+let alCurGroup='ALL';
 function buildAlTabs(){
   const gs=['ALL','A','B','C','D','E','F','G','H','I','J','K','L'];
   document.getElementById('al-tabs').innerHTML=gs.map(g=>`<button class="rtab${alCurGroup===g?' on':''}" onclick="switchAlG(event,'${g}')">${g==='ALL'?'Todo':'G '+g}</button>`).join('');
