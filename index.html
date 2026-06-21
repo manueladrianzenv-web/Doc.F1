@@ -854,7 +854,7 @@ function shareF(pid){
 // ─── ADMIN ───
 function chkPass(){const v=document.getElementById('apass')?.value;if(v!=='clubodio2026'){showT('Contraseña incorrecta ❌','err');return;}aOpen=true;renderAd();}
 function renderAd(){
-  aOpen=true;
+  if(!aOpen){rdrLocked();return;}
   try{_renderAdInner();}catch(e){
     const b=document.getElementById('adm-body');
     if(b)b.innerHTML=`<div style="padding:20px;color:#f87171;font-size:12px">⚠️ Error: ${e.message}<br><button class="btn btn-p" style="margin-top:10px" onclick="_renderAdInner()">Reintentar</button></div>`;
