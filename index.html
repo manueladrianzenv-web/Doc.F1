@@ -781,15 +781,19 @@ function setPen(pid,mid,side){
 // ─── REGISTER ───
 function openReg(){selEmoji='⚽';document.getElementById('reg-name').value='';document.getElementById('egrid').innerHTML=EMOJIS.map(e=>`<div class="eopt ${e===selEmoji?'on':''}" onclick="selEm(this,'${encodeURIComponent(e)}')">${e}</div>`).join('');openM('m-reg');}
 function selEm(el,ec){selEmoji=decodeURIComponent(ec);document.querySelectorAll('.eopt').forEach(x=>x.classList.remove('on'));el.classList.add('on');}
+let _doRegBusy=false;
 function doReg(){
+  if(_doRegBusy)return;
   const name=document.getElementById('reg-name').value.trim();
   const passRaw=(document.getElementById('reg-pass')||{}).value||'';
   if(!name){showT('Ingresa tu nombre','err');return;}
   if(passRaw.length>0&&passRaw.length<4){showT('Contraseña mínimo 4 caracteres','err');return;}
   if(G.p.find(p=>p.name.toLowerCase()===name.toLowerCase())){showT('Ese nombre ya existe','err');return;}
+  _doRegBusy=true;
   const p={id:Date.now().toString(),name,emoji:selEmoji};
   if(passRaw)p.pass=simpleHash(passRaw);
   G.p.push(p);me=p;saveG();saveMe();
+  setTimeout(()=>{_doRegBusy=false;},3000);
   AL=loadAL();
   if((AL.packs||0)<3){AL.packs=20;}
   AL.lastPackDay=new Date().toISOString().slice(0,10);
@@ -1420,9 +1424,9 @@ function renderAlbumGrid(){
           </div>
         </div>`;
       } else {
-        return `<div style="width:calc(20% - 4px);aspect-ratio:2/3;border-radius:8px;background:rgba(0,0,0,.04);border:1px dashed rgba(0,0,0,.12);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px">
-          <div style="font-size:16px;opacity:.15">?</div>
-          <div style="font-size:7px;color:rgba(0,0,0,.25);font-weight:700">#${jerseyNum}</div>
+        return `<div style="width:calc(20% - 4px);aspect-ratio:2/3;border-radius:8px;background:rgba(255,255,255,.05);border:1px dashed rgba(255,255,255,.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px">
+          <div style="font-size:16px;opacity:.35;color:#fff">?</div>
+          <div style="font-size:7px;color:rgba(255,255,255,.3);font-weight:700">#${jerseyNum}</div>
         </div>`;
       }
     }).join('');
@@ -1727,6 +1731,8 @@ function startFirebaseSync(){
       if(!G.p)G.p=[];
       if(!G.m)G.m=[];
       if(!G.preds)G.preds={};
+      // Deduplicate players by name (keep first occurrence)
+      const _seen={};G.p=G.p.filter(p=>{const k=p.name.toLowerCase();if(_seen[k])return false;_seen[k]=true;return true;});
       try{const u=localStorage.getItem('cod26-me');if(u){const p=JSON.parse(u);if(p&&G.p.find(x=>x.id===p.id))me=p;}}catch(e){}
     }
     fbReady=true;
@@ -1735,9 +1741,16 @@ function startFirebaseSync(){
     fbRef.on('value',snap2=>{
       const d=snap2.val();
       if(d&&fbReady){
+        // If we saved within last 2 seconds, ignore echoes that have fewer players (stale data)
+        const recentSave=Date.now()-_fbSaveTs<2000;
+        if(recentSave&&d.p&&G.p&&d.p.length<G.p.length)return;
         const oldMe=me;
+        const localP=G.p?[...G.p]:[];
         G={...G,...d};
         if(!G.prizes)G.prizes={p1:'',p2:'',p3:'',p4:''};
+        if(!G.p)G.p=[];
+        // Deduplicate players by name (keep most recent by id)
+        const seen={};G.p=G.p.filter(p=>{const k=p.name.toLowerCase();if(seen[k])return false;seen[k]=true;return true;});
         if(oldMe)me=G.p.find(x=>x.id===oldMe.id)||null;
         renderLB();
         const activeTab=document.querySelector('.nb.on')?.id?.replace('nb-','');
@@ -1755,9 +1768,12 @@ function hideFbLoading(){document.getElementById('fb-loading').style.display='no
 
 // Override saveG to use Firebase
 const _origSaveG=saveG;
+let _fbSaveTs=0;
 function saveG(){
-  if(fbRef&&fbReady)fbRef.set(G).catch(e=>console.error('Firebase save error:',e));
-  else _origSaveG();
+  if(fbRef&&fbReady){
+    _fbSaveTs=Date.now();
+    fbRef.set(G).catch(e=>console.error('Firebase save error:',e));
+  } else _origSaveG();
 }
 
 // Login functions
