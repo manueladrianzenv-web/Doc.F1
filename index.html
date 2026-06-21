@@ -316,20 +316,14 @@ function saveFbConfig(){
   }catch(e){showT('Config inválido: '+e.message,'err');}
 }
 
-// Auto-init on load
+// Auto-init on load — non-blocking
 (function(){
-  showFbLoading();
   const cfg=getFbConfig();
   if(cfg){
-    document.getElementById('fb-status').textContent='Conectando con Firebase...';
-    // Timeout fallback: if Firebase doesn't connect in 6 seconds, show app anyway
-    const fbTimeout=setTimeout(()=>{
-      if(!fbReady){console.warn('Firebase timeout, running in local mode');hideFbLoading();}
-    },6000);
-    const ok=initFirebase(cfg);
-    if(!ok){clearTimeout(fbTimeout);hideFbLoading();}
-  }else{
-    hideFbLoading();
+    // Init Firebase in background, never block the UI
+    setTimeout(()=>{
+      try{initFirebase(cfg);}catch(e){console.warn('Firebase failed:',e);}
+    },100);
   }
 })();
 
@@ -1882,7 +1876,7 @@ function getEffectivePhotoUrl(p){
 
 
 <!-- LOADING OVERLAY -->
-<div id="fb-loading" style="display:none;position:fixed;inset:0;background:rgba(240,244,255,.97);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+<div id="fb-loading" style="display:none;position:fixed;inset:0;background:rgba(15,15,26,.97);z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:16px">
   <div style="font-size:52px">🍺</div>
   <div style="font-size:15px;font-weight:800;color:#3f3f46">Conectando al Club...</div>
   <div id="fb-status" style="font-size:12px;color:#64748b">Iniciando Firebase</div>
