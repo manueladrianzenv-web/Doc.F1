@@ -1011,7 +1011,7 @@ function shareF(pid){
 // ─── ADMIN ───
 function chkPass(){aOpen=true;renderAd();}
 function renderAd(){
-  if(!aOpen)return;
+  aOpen=true;
   document.getElementById('adm-body').innerHTML=`<div style="padding-top:4px">
   <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-.5px;margin-bottom:3px">⚙️ Panel Admin</div>
   <div style="font-size:10px;color:var(--t3);margin-bottom:16px">Club del Odio · Copa del Mundo 2026</div>
