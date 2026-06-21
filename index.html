@@ -946,16 +946,77 @@ function buildAlTabs(){
   document.getElementById('al-tabs').innerHTML=gs.map(g=>`<button class="rtab${alCurGroup===g?' on':''}" onclick="switchAlG(event,'${g}')">${g==='ALL'?'Todo':'G '+g}</button>`).join('');
 }
 function switchAlG(e,g){alCurGroup=g;document.querySelectorAll('#al-tabs .rtab').forEach(b=>b.classList.remove('on'));e.target.classList.add('on');renderAlbumGrid();}
+
+
 function renderAlbumGrid(){
+  // Skin tone by country (DiceBear skinColor param)
+  const SKIN={
+    'Argentina':'tan','Brasil':'tan','Colombia':'brown','México':'tan','Uruguay':'tan',
+    'Paraguay':'tan','Ecuador':'tan','Perú':'tan','Chile':'tan',
+    'España':'light','Francia':'light','Alemania':'light','Portugal':'light',
+    'Países Bajos':'light','Bélgica':'light','Inglaterra':'light','Suecia':'light',
+    'Noruega':'pale','Suiza':'light','Austria':'light','Chequia':'light',
+    'Croacia':'light','Bosnia-Herz.':'light','Escocia':'light',
+    'USA':'light','Canadá':'light','Panamá':'tan','Costa Rica':'tan',
+    'Corea del Sur':'yellow','Japón':'yellow','Australia':'light',
+    'Nueva Zelanda':'light','Turquía':'tan','Irán':'tan','Iraq':'brown',
+    'Arabia Saudita':'brown','Qatar':'brown','Jordania':'brown',
+    'Uzbekistán':'tan',
+    'Senegal':'darkBrown','Ghana':'darkBrown','Marruecos':'brown',
+    'Egipto':'brown','Costa de Marfil':'darkBrown','Rep. D. Congo':'darkBrown',
+    'Cabo Verde':'brown','Argelia':'brown','Sudáfrica':'brown',
+    'Haití':'darkBrown','Curazao':'brown'
+  };
+  // Hair color hints by country
+  const HAIR={
+    'Noruega':'blonde','Suecia':'blonde','Alemania':'blonde',
+    'Países Bajos':'blonde','Austria':'blonde',
+    'Japón':'black','Corea del Sur':'black','China':'black',
+    'Argentina':'black','Brasil':'black','Colombia':'black',
+    'Senegal':'black','Ghana':'black','Rep. D. Congo':'black',
+    'Costa de Marfil':'black','Haití':'black'
+  };
   const posC={G:'#f59e0b',D:'#3b82f6',M:'#22c55e',F:'#ef4444'};
-  const entries=Object.entries(SQUADS).filter(([c,[f,g]])=>alCurGroup==='ALL'||g===alCurGroup);
-  document.getElementById('al-body').innerHTML=entries.map(([country,[flag,grp,players]])=>{
+  const posGrad={
+    G:'linear-gradient(160deg,#78350f,#92400e)',
+    D:'linear-gradient(160deg,#1e3a5f,#1e40af)',
+    M:'linear-gradient(160deg,#14532d,#166534)',
+    F:'linear-gradient(160deg,#7f1d1d,#991b1b)'
+  };
+  const posLabel={G:'POR',D:'DEF',M:'MED',F:'DEL'};
+  const entries=Object.entries(SQUADS).filter(([c,[f,g]])=>alCurGroup==="ALL"||g===alCurGroup);
+  document.getElementById("al-body").innerHTML=entries.map(([country,[flag,grp,players]])=>{
     const col=players.filter((_,i)=>AL.col[`${country}_${i}`]).length;
     const pct=Math.round(col/players.length*100);
+    const skin=SKIN[country]||'light';
+    const hair=HAIR[country]||'brown';
     const slots=players.map(([name,pos],i)=>{
-      const id=`${country}_${i}`,has=AL.col[id],pc=posC[pos]||'#888';
-      return `<div title="${has?name+' ('+pos+')':'???'}" style="width:calc(14.28% - 3px);aspect-ratio:3/4;border-radius:6px;border:1px solid ${has?pc+'66':'rgba(255,255,255,.07)'};background:${has?'rgba('+hexR(pc)+',.15)':'rgba(255,255,255,.03)'};display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:help;overflow:hidden;box-sizing:border-box;padding:1px">
-        ${has?`<div style="font-size:6.5px;color:${pc};font-weight:900">${pos}</div><div style="font-size:6px;color:#fff;font-weight:700;text-align:center;word-break:break-word;line-height:1.1">${name.length>9?name.slice(0,9)+'…':name}</div>`:`<span style="font-size:12px;opacity:.2">?</span>`}</div>`;
+      const id=`${country}_${i}`,has=AL.col[id];
+      const pc=posC[pos]||'#888';
+      const pg=posGrad[pos]||'linear-gradient(160deg,#1f2937,#374151)';
+      const num=i+1;
+      const shortName=name.length>10?name.slice(0,10)+'…':name;
+      // Build DiceBear URL with country-appropriate skin tone
+      const seed=encodeURIComponent(name+country);
+      const avatarUrl=`https://api.dicebear.com/9.x/avataaars/svg?seed=${seed}&skinColor=${skin}&top=shortHair,shortFlat,shortRound,shortWaved,dreads,frizzle,fro&backgroundColor=transparent`;
+      if(has){
+        return `<div style="width:calc(14.28% - 3px);aspect-ratio:2/3;border-radius:7px;overflow:hidden;position:relative;background:${pg};box-shadow:0 2px 8px rgba(0,0,0,.5);flex-shrink:0" title="${name} · ${posLabel[pos]} · #${num}">
+          <div style="position:absolute;top:0;left:0;right:0;height:58%;display:flex;align-items:flex-end;justify-content:center;overflow:hidden">
+            <img src="${avatarUrl}" style="width:90%;height:90%;object-fit:contain" loading="lazy" onerror="this.style.display='none'">
+          </div>
+          <div style="position:absolute;top:2px;left:2px;font-size:6px;font-weight:900;color:rgba(255,255,255,.8);background:rgba(0,0,0,.4);border-radius:3px;padding:0 2px;line-height:1.4">${num}</div>
+          <div style="position:absolute;top:2px;right:2px;font-size:10px;line-height:1">${flag}</div>
+          <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.65);padding:3px 2px 2px">
+            <div style="font-size:5.5px;font-weight:900;color:${pc};letter-spacing:.5px;text-align:center;text-transform:uppercase">${posLabel[pos]}</div>
+            <div style="font-size:5.5px;font-weight:800;color:#fff;text-align:center;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${shortName}</div>
+          </div>
+        </div>`;
+      } else {
+        return `<div style="width:calc(14.28% - 3px);aspect-ratio:2/3;border-radius:7px;background:rgba(255,255,255,.03);border:1px dashed rgba(255,255,255,.09);display:flex;flex-direction:column;align-items:center;justify-content:center" title="Jugador #${num} sin descubrir">
+          <div style="font-size:13px;opacity:.12">?</div>
+          <div style="font-size:5px;color:rgba(255,255,255,.12);margin-top:1px">${num}</div>
+        </div>`;
+      }
     }).join('');
     return `<div style="background:var(--glass);border:1px solid var(--bdr);border-radius:14px;padding:12px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -966,6 +1027,7 @@ function renderAlbumGrid(){
     </div>`;
   }).join('');
 }
+
 function updateAlStats(){
   const col=alCollected(),pct=Math.round(col/AL_TOTAL*100);
   const e=id=>document.getElementById(id);
