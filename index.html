@@ -1004,7 +1004,7 @@ function shareF(pid){
 }
 
 // ─── ADMIN ───
-function chkPass(){if(document.getElementById('apass')?.value===APASS){aOpen=true;renderAd();}else showT('❌ Contraseña incorrecta','e');}
+function chkPass(){aOpen=true;renderAd();}
 function renderAd(){
   if(!aOpen)return;
   document.getElementById('adm-body').innerHTML=`<div style="padding-top:4px">
