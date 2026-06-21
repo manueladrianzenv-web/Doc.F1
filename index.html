@@ -175,164 +175,7 @@ select.fi{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
 .star-card{box-shadow:0 0 0 2px #f59e0b,0 0 20px rgba(245,158,11,.6)!important;animation:starPulse .6s ease infinite alternate}
 @keyframes starPulse{from{box-shadow:0 0 0 2px #f59e0b,0 0 15px rgba(245,158,11,.5)}to{box-shadow:0 0 0 3px #fbbf24,0 0 30px rgba(251,191,36,.8)}}
 </style>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js">
-// ═══════════════════════════════════════════════
-// FIREBASE INTEGRATION
-// ═══════════════════════════════════════════════
-let fbApp=null,fbDb=null,fbRef=null,fbReady=false;
-
-function simpleHash(s){
-  let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h)+s.charCodeAt(i)|0;
-  return(h>>>0).toString(36);
-}
-
-function getFbConfig(){
-  try{const c=localStorage.getItem('cod26-fb');return c?JSON.parse(c):null;}catch(e){return null;}
-}
-
-function initFirebase(config){
-  try{
-    if(!firebase.apps.length)fbApp=firebase.initializeApp(config);
-    else fbApp=firebase.app();
-    fbDb=firebase.database();
-    fbRef=fbDb.ref('polla2026');
-    localStorage.setItem('cod26-fb',JSON.stringify(config));
-    startFirebaseSync();
-    return true;
-  }catch(e){console.error('Firebase init error:',e);return false;}
-}
-
-function startFirebaseSync(){
-  document.getElementById('fb-status').textContent='Cargando datos...';
-  fbRef.once('value').then(snap=>{
-    const data=snap.val();
-    if(data){
-      G={...G,...data};
-      if(!G.prizes)G.prizes={p1:'',p2:'',p3:'',p4:''};
-      if(!G.p)G.p=[];
-      if(!G.m)G.m=[];
-      if(!G.preds)G.preds={};
-      // Restore current user
-      try{const u=localStorage.getItem('cod26-me');if(u){const p=JSON.parse(u);if(p&&G.p.find(x=>x.id===p.id))me=p;}}catch(e){}
-    }
-    fbReady=true;
-    hideFbLoading();
-    renderLB();renderPR();
-    // Real-time listener
-    fbRef.on('value',snap2=>{
-      const d=snap2.val();
-      if(d&&fbReady){
-        const oldMe=me;
-        G={...G,...d};
-        if(!G.prizes)G.prizes={p1:'',p2:'',p3:'',p4:''};
-        if(oldMe)me=G.p.find(x=>x.id===oldMe.id)||null;
-        renderLB();
-        const activeTab=document.querySelector('.nb.on')?.id?.replace('nb-','');
-        if(activeTab&&activeTab!=='lb')({mx:renderMX,pr:renderPR,fi:renderFichaScreen,ad:renderAd,al:renderAlbum}[activeTab])?.();
-      }
-    });
-  }).catch(e=>{
-    document.getElementById('fb-status').textContent='Error: '+e.message;
-    setTimeout(hideFbLoading,3000);
-  });
-}
-
-function showFbLoading(){document.getElementById('fb-loading').style.display='flex';}
-function hideFbLoading(){document.getElementById('fb-loading').style.display='none';}
-
-// Override saveG to use Firebase
-const _origSaveG=saveG;
-function saveG(){
-  if(fbRef&&fbReady)fbRef.set(G).catch(e=>console.error('Firebase save error:',e));
-  else _origSaveG();
-}
-
-// ─── LOGIN WITH PASSWORD ───
-function openLoginModal(){
-  const sel=document.getElementById('login-name');
-  sel.innerHTML='<option value="">— Elegí tu nombre —</option>'+
-    G.p.map(p=>`<option value="${p.id}">${p.emoji||''} ${p.name}</option>`).join('');
-  document.getElementById('login-pass').value='';
-  openM('m-login');
-}
-
-function doLogin(){
-  const pid=document.getElementById('login-name').value;
-  const pass=document.getElementById('login-pass').value;
-  if(!pid){showT('Elegí tu nombre','err');return;}
-  if(!pass){showT('Ingresá tu contraseña','err');return;}
-  const p=G.p.find(x=>x.id===pid);
-  if(!p){showT('Usuario no encontrado','err');return;}
-  if(p.pass&&p.pass!==simpleHash(pass)){showT('Contraseña incorrecta ❌','err');return;}
-  me=p;saveMe();closeM('m-login');renderPR();
-  showT('¡Bienvenido/a de vuelta, '+p.name+'! 👋');
-}
-
-// Override logAs to require password if user has one
-function logAs(pid){
-  const p=G.p.find(x=>x.id===pid);
-  if(!p)return;
-  if(p.pass){
-    // Show login modal pre-selected
-    const sel=document.getElementById('login-name');
-    sel.innerHTML='<option value="">— Elegí tu nombre —</option>'+
-      G.p.map(px=>`<option value="${px.id}"${px.id===pid?' selected':''}>${px.emoji||''} ${px.name}</option>`).join('');
-    document.getElementById('login-pass').value='';
-    openM('m-login');
-  }else{
-    me=p;saveMe();renderPR();showT('¡Hola de vuelta, '+p.name+'!');
-  }
-}
-
-// ─── ADMIN: FIREBASE CONFIG UI ───
-function renderFbAdmin(){
-  const cfg=getFbConfig();
-  const hasFb=!!cfg;
-  return `<div style="background:${hasFb?'rgba(34,197,94,.06)':'rgba(245,158,11,.06)'};border:1px solid ${hasFb?'rgba(34,197,94,.2)':'rgba(245,158,11,.2)'};border-radius:16px;padding:16px;margin-bottom:16px">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-      <span style="font-size:20px">${hasFb?'🟢':'🔴'}</span>
-      <div>
-        <div style="font-size:12px;font-weight:900;color:${hasFb?'#059669':'#d97706'};letter-spacing:1px;text-transform:uppercase">Firebase ${hasFb?'Conectado':'No configurado'}</div>
-        <div style="font-size:10px;color:var(--t3)">${hasFb?'Datos sincronizados en todos los dispositivos':'Multi-dispositivo desactivado'}</div>
-      </div>
-    </div>
-    <textarea id="adm-fb-cfg" rows="4" placeholder='Pegá aquí el objeto firebaseConfig de Firebase...\n{\n  apiKey: "...",\n  databaseURL: "...",\n  ...\n}' style="width:100%;background:rgba(0,0,0,.04);border:1px solid var(--bg4);border-radius:10px;padding:8px;color:var(--t1);font-size:10px;font-family:monospace;resize:vertical;box-sizing:border-box">${cfg?JSON.stringify(cfg,null,2):''}</textarea>
-    <button class="btn btn-p" style="width:100%;margin-top:8px" onclick="saveFbConfig()">Conectar Firebase</button>
-  </div>`;
-}
-
-function saveFbConfig(){
-  let raw=document.getElementById('adm-fb-cfg').value.trim();
-  try{
-    // Handle both JS object literal and JSON
-    raw=raw.replace(/(\w+):/g,'"$1":').replace(/'/g,'"');
-    // Remove trailing commas
-    raw=raw.replace(/,(\s*[}\]])/g,'$1');
-    const cfg=JSON.parse(raw);
-    if(!cfg.databaseURL){showT('Falta databaseURL en el config','err');return;}
-    const ok=initFirebase(cfg);
-    if(ok){showT('Firebase conectado ✅');renderAd();}
-    else{showT('Error al conectar Firebase','err');}
-  }catch(e){showT('Config inválido: '+e.message,'err');}
-}
-
-// Auto-init on load — Firebase hardcoded, non-blocking
-(function(){
-  const HARDCODED_FB={
-    apiKey:"AIzaSyBcqqWIsGynHgdxlKUXGBos0CRQ3yhEyZk",
-    authDomain:"club-del-odio.firebaseapp.com",
-    databaseURL:"https://club-del-odio-default-rtdb.firebaseio.com",
-    projectId:"club-del-odio",
-    storageBucket:"club-del-odio.firebasestorage.app",
-    messagingSenderId:"854979877934",
-    appId:"1:854979877934:web:c864e8f3fe8f29b564d3bf"
-  };
-  setTimeout(()=>{
-    try{initFirebase(HARDCODED_FB);}catch(e){console.warn('Firebase failed:',e);}
-  },500);
-})();
-
-</script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
@@ -1843,6 +1686,156 @@ function getEffectivePhotoUrl(p){
   return getPhotoUrl(p.name);
 }
 
+</script>
+<script>
+// ═══════════════════════════════════════════════
+// FIREBASE INTEGRATION
+// ═══════════════════════════════════════════════
+let fbApp=null,fbDb=null,fbRef=null,fbReady=false;
+
+function simpleHash(s){
+  let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h)+s.charCodeAt(i)|0;
+  return(h>>>0).toString(36);
+}
+
+function getFbConfig(){
+  try{const c=localStorage.getItem('cod26-fb');return c?JSON.parse(c):null;}catch(e){return null;}
+}
+
+function initFirebase(config){
+  try{
+    if(!firebase.apps.length)fbApp=firebase.initializeApp(config);
+    else fbApp=firebase.app();
+    fbDb=firebase.database();
+    fbRef=fbDb.ref('polla2026');
+    localStorage.setItem('cod26-fb',JSON.stringify(config));
+    startFirebaseSync();
+    return true;
+  }catch(e){console.error('Firebase init error:',e);return false;}
+}
+
+function startFirebaseSync(){
+  document.getElementById('fb-status').textContent='Cargando datos...';
+  fbRef.once('value').then(snap=>{
+    const data=snap.val();
+    if(data){
+      G={...G,...data};
+      if(!G.prizes)G.prizes={p1:'',p2:'',p3:'',p4:''};
+      if(!G.p)G.p=[];
+      if(!G.m)G.m=[];
+      if(!G.preds)G.preds={};
+      try{const u=localStorage.getItem('cod26-me');if(u){const p=JSON.parse(u);if(p&&G.p.find(x=>x.id===p.id))me=p;}}catch(e){}
+    }
+    fbReady=true;
+    hideFbLoading();
+    renderLB();renderPR();
+    fbRef.on('value',snap2=>{
+      const d=snap2.val();
+      if(d&&fbReady){
+        const oldMe=me;
+        G={...G,...d};
+        if(!G.prizes)G.prizes={p1:'',p2:'',p3:'',p4:''};
+        if(oldMe)me=G.p.find(x=>x.id===oldMe.id)||null;
+        renderLB();
+        const activeTab=document.querySelector('.nb.on')?.id?.replace('nb-','');
+        if(activeTab&&activeTab!=='lb')({mx:renderMX,pr:renderPR,fi:renderFichaScreen,ad:renderAd,al:renderAlbum}[activeTab])?.();
+      }
+    });
+  }).catch(e=>{
+    document.getElementById('fb-status').textContent='Error: '+e.message;
+    setTimeout(hideFbLoading,3000);
+  });
+}
+
+function showFbLoading(){document.getElementById('fb-loading').style.display='flex';}
+function hideFbLoading(){document.getElementById('fb-loading').style.display='none';}
+
+// Override saveG to use Firebase
+const _origSaveG=saveG;
+function saveG(){
+  if(fbRef&&fbReady)fbRef.set(G).catch(e=>console.error('Firebase save error:',e));
+  else _origSaveG();
+}
+
+// Login functions
+function openLoginModal(){
+  const sel=document.getElementById('login-name');
+  sel.innerHTML='<option value="">— Elegí tu nombre —</option>'+
+    G.p.map(p=>`<option value="${p.id}">${p.emoji||''} ${p.name}</option>`).join('');
+  document.getElementById('login-pass').value='';
+  openM('m-login');
+}
+
+function doLogin(){
+  const pid=document.getElementById('login-name').value;
+  const pass=document.getElementById('login-pass').value;
+  if(!pid){showT('Elegí tu nombre','err');return;}
+  if(!pass){showT('Ingresá tu contraseña','err');return;}
+  const p=G.p.find(x=>x.id===pid);
+  if(!p){showT('Usuario no encontrado','err');return;}
+  if(p.pass&&p.pass!==simpleHash(pass)){showT('Contraseña incorrecta ❌','err');return;}
+  me=p;saveMe();closeM('m-login');renderPR();
+  showT('¡Bienvenido/a de vuelta, '+p.name+'! 👋');
+}
+
+function logAs(pid){
+  const p=G.p.find(x=>x.id===pid);
+  if(!p)return;
+  if(p.pass){
+    const sel=document.getElementById('login-name');
+    sel.innerHTML='<option value="">— Elegí tu nombre —</option>'+
+      G.p.map(px=>`<option value="${px.id}"${px.id===pid?' selected':''}>${px.emoji||''} ${px.name}</option>`).join('');
+    document.getElementById('login-pass').value='';
+    openM('m-login');
+  }else{
+    me=p;saveMe();renderPR();showT('¡Hola de vuelta, '+p.name+'!');
+  }
+}
+
+function renderFbAdmin(){
+  const cfg=getFbConfig();
+  const hasFb=!!cfg;
+  return `<div style="background:${hasFb?'rgba(34,197,94,.06)':'rgba(245,158,11,.06)'};border:1px solid ${hasFb?'rgba(34,197,94,.2)':'rgba(245,158,11,.2)'};border-radius:16px;padding:16px;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <span style="font-size:20px">${hasFb?'🟢':'🔴'}</span>
+      <div>
+        <div style="font-size:12px;font-weight:900;color:${hasFb?'#059669':'#d97706'};letter-spacing:1px;text-transform:uppercase">Firebase ${hasFb?'Conectado':'No configurado'}</div>
+        <div style="font-size:10px;color:var(--t3)">${hasFb?'Datos sincronizados en todos los dispositivos':'Multi-dispositivo desactivado'}</div>
+      </div>
+    </div>
+    <textarea id="adm-fb-cfg" rows="4" placeholder='Pegá aquí el firebaseConfig...' style="width:100%;background:rgba(0,0,0,.04);border:1px solid var(--bg4);border-radius:10px;padding:8px;color:var(--t1);font-size:10px;font-family:monospace;resize:vertical;box-sizing:border-box">${cfg?JSON.stringify(cfg,null,2):''}</textarea>
+    <button class="btn btn-p" style="width:100%;margin-top:8px" onclick="saveFbConfig()">Conectar Firebase</button>
+  </div>`;
+}
+
+function saveFbConfig(){
+  let raw=document.getElementById('adm-fb-cfg').value.trim();
+  try{
+    raw=raw.replace(/(\w+):/g,'"$1":').replace(/'/g,'"');
+    raw=raw.replace(/,(\s*[}\]])/g,'$1');
+    const cfg=JSON.parse(raw);
+    if(!cfg.databaseURL){showT('Falta databaseURL en el config','err');return;}
+    const ok=initFirebase(cfg);
+    if(ok){showT('Firebase conectado ✅');renderAd();}
+    else{showT('Error al conectar Firebase','err');}
+  }catch(e){showT('Config inválido: '+e.message,'err');}
+}
+
+// Auto-init Firebase
+(function(){
+  const HARDCODED_FB={
+    apiKey:"AIzaSyBcqqWIsGynHgdxlKUXGBos0CRQ3yhEyZk",
+    authDomain:"club-del-odio.firebaseapp.com",
+    databaseURL:"https://club-del-odio-default-rtdb.firebaseio.com",
+    projectId:"club-del-odio",
+    storageBucket:"club-del-odio.firebasestorage.app",
+    messagingSenderId:"854979877934",
+    appId:"1:854979877934:web:c864e8f3fe8f29b564d3bf"
+  };
+  setTimeout(()=>{
+    try{initFirebase(HARDCODED_FB);}catch(e){console.warn('Firebase failed:',e);}
+  },500);
+})();
 </script>
 
 <!-- YAPE MODAL -->
