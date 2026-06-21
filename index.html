@@ -1031,6 +1031,9 @@ function renderAd(){
   <div style="font-size:11px;color:var(--t3);padding:2px 0 13px">${G.prizes.p1||G.prizes.p2?`🥇 ${G.prizes.p1||'—'} · 🥈 ${G.prizes.p2||'—'} · 🥉 ${G.prizes.p3||'—'}${G.prizes.p4?' · 💀 '+G.prizes.p4:''}`:'Sin premios configurados'}</div>
 
   <div class="div"></div>
+  ${renderFbAdmin()}
+
+  <div class="div"></div>
   <div style="font-size:8.5px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#ef4444;margin-bottom:9px">⚠️ ZONA DE PELIGRO</div>
   <button class="btn btn-d" style="width:100%;margin-bottom:7px" onclick="resetAll()">🗑️ Borrar todos los datos</button>
   <button class="btn btn-g" style="width:100%" onclick="aOpen=false;rdrLocked()">🔒 Cerrar sesión admin</button>
