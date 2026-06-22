@@ -978,7 +978,11 @@ function doReg(){
   const passRaw=(document.getElementById('reg-pass')||{}).value||'';
   if(!name){showT('Ingresa tu nombre','err');return;}
   if(passRaw.length>0&&passRaw.length<4){showT('Contraseña mínimo 4 caracteres','err');return;}
-  if(G.p.find(p=>p.name.toLowerCase()===name.toLowerCase())){showT('Ese nombre ya existe — usá "Iniciar sesión" abajo ↓','err');closeM('m-reg');setTimeout(openLoginModal,600);return;}
+  const _existing=G.p.find(p=>p.name.toLowerCase()===name.toLowerCase());
+  if(_existing){
+    if(!_existing.pass){me=_existing;saveMe();closeM('m-reg');renderPR();showT('¡Bienvenido/a de vuelta, '+_existing.name+'! 👋');return;}
+    showT('Ese nombre ya existe — ingresá tu contraseña','err');closeM('m-reg');setTimeout(openLoginModal,600);return;
+  }
   _doRegBusy=true;
   const p={id:Date.now().toString(),name,emoji:selEmoji};
   if(passRaw)p.pass=simpleHash(passRaw);
