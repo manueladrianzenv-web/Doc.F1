@@ -134,8 +134,13 @@ select.fi{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
 .ovl{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:200;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)}
 .ovl.off{display:none}
 .modal{background:linear-gradient(160deg,#f8f6ff,#f0f4ff);border-radius:22px 22px 0 0;padding:22px 16px;width:100%;max-width:520px;border-top:2px solid rgba(124,58,237,.3);max-height:90vh;overflow-y:auto}
-.mh{width:34px;height:3px;background:var(--bg4);border-radius:2px;margin:0 auto 18px}
-.mtitle{font-size:18px;font-weight:900;color:#fff;margin-bottom:14px;letter-spacing:-.3px}
+.mh{width:34px;height:3px;background:#ccc;border-radius:2px;margin:0 auto 18px}
+.mtitle{font-size:18px;font-weight:900;color:#1e1b4b;margin-bottom:14px;letter-spacing:-.3px}
+.modal .fi{color:#1e1b4b;background:rgba(0,0,0,.06);border-color:rgba(100,80,200,.2)}
+.modal .fi::placeholder{color:#9090b0}
+.modal .fl{color:#5a5080;font-weight:800}
+.modal select.fi{color:#1e1b4b}
+.modal .fi:focus{border-color:var(--p);background:rgba(0,0,0,.03)}
 .rgin{width:62px;height:62px;background:rgba(0,0,0,.04);border:2px solid var(--bg4);border-radius:12px;text-align:center;font-size:28px;font-weight:900;color:var(--t1);outline:none;display:block;margin:0 auto;-moz-appearance:textfield;-webkit-appearance:none}
 .rgin::-webkit-inner-spin-button,.rgin::-webkit-outer-spin-button{-webkit-appearance:none}
 .rgin:focus{border-color:var(--p);box-shadow:0 0 0 3px rgba(124,58,237,.15)}
@@ -580,6 +585,72 @@ function renderLB(){
 function qFicha(pid){document.getElementById('fi-sel').value=pid;renderFicha();go('fi');}
 
 // ─── MATCHES TAB ───
+// ─── GROUP STANDINGS ───
+function calcGroupStandings(){
+  const st={};
+  // Register all teams from ALL group matches (played or not)
+  G.m.filter(m=>m.round==='grupos').forEach(m=>{
+    const g=m.group||'?';
+    if(!st[g])st[g]={};
+    const add=(name,flag)=>{if(!st[g][name])st[g][name]={name,flag,pts:0,gf:0,ga:0,gd:0,w:0,d:0,l:0,pl:0};};
+    add(m.t1,m.f1);add(m.t2,m.f2);
+  });
+  // Process completed matches
+  G.m.filter(m=>m.round==='grupos'&&done(m)).forEach(m=>{
+    const g=m.group||'?';
+    if(!st[g]||!st[g][m.t1]||!st[g][m.t2])return;
+    const t1=st[g][m.t1],t2=st[g][m.t2];
+    const r1=Number(m.rg1),r2=Number(m.rg2);
+    t1.pl++;t2.pl++;t1.gf+=r1;t1.ga+=r2;t2.gf+=r2;t2.ga+=r1;
+    if(r1>r2){t1.w++;t1.pts+=3;t2.l++;}
+    else if(r1<r2){t2.w++;t2.pts+=3;t1.l++;}
+    else{t1.d++;t2.d++;t1.pts++;t2.pts++;}
+  });
+  Object.values(st).forEach(grp=>Object.values(grp).forEach(t=>{t.gd=t.gf-t.ga;}));
+  return st;
+}
+function getQualifiedTeams(st){
+  const qualTop2=new Set(),thirds=[];
+  Object.entries(st).forEach(([grp,teams])=>{
+    const sorted=Object.values(teams).sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf);
+    const n=sorted.length;
+    const totalGames=n*(n-1)/2;
+    const played=sorted.reduce((s,t)=>s+t.pl,0)/2;
+    if(played>=totalGames&&n>=2){
+      qualTop2.add(sorted[0].name);qualTop2.add(sorted[1].name);
+      if(sorted[2])thirds.push({...sorted[2],grp});
+    }
+  });
+  thirds.sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf);
+  const qualThirds=new Set(thirds.slice(0,8).map(t=>t.name));
+  return{qualTop2,qualThirds};
+}
+function standingsHtml(grp,teams,qualTop2,qualThirds){
+  if(!teams||!Object.keys(teams).length)return'';
+  const sorted=Object.values(teams).sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf);
+  let h=`<div style="background:rgba(255,255,255,.04);border:1px solid var(--bdr);border-radius:12px;overflow:hidden;margin-bottom:8px">
+    <div style="display:grid;grid-template-columns:20px 1fr 28px 32px 28px 36px 90px;gap:2px;font-size:9px;font-weight:800;color:var(--t4);text-transform:uppercase;letter-spacing:.8px;padding:7px 10px 5px;border-bottom:1px solid var(--bdr)">
+      <span></span><span>Equipo</span><span style="text-align:center">PJ</span><span style="text-align:center">GD</span><span style="text-align:center">GF</span><span style="text-align:center">PTS</span><span></span>
+    </div>`;
+  sorted.forEach((t,i)=>{
+    const isQ2=qualTop2.has(t.name),isQ3=qualThirds.has(t.name);
+    const ql=isQ2?'CLASIFICADO ✓':isQ3?'3ro CLASIF. ✓':'';
+    h+=`<div style="display:grid;grid-template-columns:20px 1fr 28px 32px 28px 36px 90px;gap:2px;align-items:center;padding:7px 10px;${i<sorted.length-1?'border-bottom:1px solid rgba(255,255,255,.04)':''}${i<2?';background:rgba(34,197,94,.04)':''}">
+      <span style="font-size:10px;color:var(--t4);font-weight:800">${i+1}</span>
+      <div style="display:flex;align-items:center;gap:5px;min-width:0">
+        <span style="font-size:13px">${t.flag}</span>
+        <span style="font-size:11px;font-weight:700;color:${i<2?'var(--t1)':'var(--t3)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.name}</span>
+      </div>
+      <span style="text-align:center;font-size:11px;color:var(--t3)">${t.pl}</span>
+      <span style="text-align:center;font-size:11px;font-weight:700;color:${t.gd>0?'#22c55e':t.gd<0?'#f87171':'var(--t3)'}">${t.gd>0?'+':''}${t.gd}</span>
+      <span style="text-align:center;font-size:11px;color:var(--t3)">${t.gf}</span>
+      <span style="text-align:center;font-size:14px;font-weight:900;color:${i<2?'#fff':'var(--t3)'}">${t.pts}</span>
+      <span style="font-size:9px;font-weight:900;color:#22c55e;text-transform:uppercase;letter-spacing:.3px;line-height:1.2">${ql}</span>
+    </div>`;
+  });
+  return h+'</div>';
+}
+
 function renderMX(){
   const rp=[...new Set(G.m.map(m=>m.round))];
   const ord=RND_ORD.filter(r=>rp.includes(r));
@@ -587,20 +658,45 @@ function renderMX(){
   document.getElementById('rtabs').innerHTML=ord.map(r=>`<button class="rtab ${r===curRnd?'on':''}" onclick="swRnd('${r}')">${RND_S[r]}</button>`).join('');
   const ms=G.m.filter(m=>m.round===curRnd);
   if(!ms.length){document.getElementById('mx-list').innerHTML=`<div class="empty"><div class="ei">📅</div><p style="font-size:12px;color:var(--t3)">Sin partidos en esta fase</p></div>`;return;}
+  const today=new Date().toISOString().slice(0,10);
   let html='';
   if(curRnd==='grupos'){
+    const st=calcGroupStandings();
+    const {qualTop2,qualThirds}=getQualifiedTeams(st);
     const byGrp={};ms.forEach(m=>{const g=m.group||'?';if(!byGrp[g])byGrp[g]=[];byGrp[g].push(m);});
     Object.entries(byGrp).sort(([a],[b])=>a.localeCompare(b)).forEach(([grp,matches])=>{
       html+=`<div class="ph"><div class="phl">Grupo ${grp}</div><div class="phln"></div></div>`;
-      html+=matches.map(m=>mcHtml(m,null,false)).join('');
+      // Standings table
+      if(st[grp])html+=standingsHtml(grp,st[grp],qualTop2,qualThirds);
+      // Upcoming matches
+      const upcoming=matches.filter(m=>!done(m));
+      if(upcoming.length){
+        html+=`<div style="font-size:9px;color:var(--t4);font-weight:800;letter-spacing:1px;text-transform:uppercase;margin:8px 0 5px">PRÓXIMOS PARTIDOS</div>`;
+        html+=upcoming.map(m=>mcHtml(m,null,false)).join('');
+      }
+      // Played matches collapsible
+      const played=matches.filter(m=>done(m));
+      if(played.length){
+        html+=`<details style="margin-bottom:4px"><summary style="font-size:9px;color:var(--t4);font-weight:800;cursor:pointer;letter-spacing:1px;text-transform:uppercase;padding:6px 0;list-style:none">▸ VER RESULTADOS (${played.length})</summary><div style="margin-top:4px">${played.map(m=>mcHtml(m,null,false)).join('')}</div></details>`;
+      }
     });
   } else {
-    const byDay={};ms.forEach(m=>{const dk=dayKey(m.date);if(!byDay[dk])byDay[dk]=[];byDay[dk].push(m);});
-    Object.entries(byDay).sort(([a],[b])=>a.localeCompare(b)).forEach(([dk,matches])=>{
-      const lbl=matches[0].date?fmtDate(matches[0].date):'Fecha por confirmar';
-      html+=`<div class="ph"><div class="phl">📅 ${lbl}</div><div class="phln"></div></div>`;
-      html+=matches.map(m=>mcHtml(m,null,false)).join('');
-    });
+    // Knockout: show upcoming first, then collapsible played
+    const upcoming=ms.filter(m=>!done(m));
+    const played=ms.filter(m=>done(m));
+    if(upcoming.length){
+      const byDay={};upcoming.forEach(m=>{const dk=dayKey(m.date);if(!byDay[dk])byDay[dk]=[];byDay[dk].push(m);});
+      Object.entries(byDay).sort(([a],[b])=>a.localeCompare(b)).forEach(([dk,matches])=>{
+        const lbl=matches[0].date?fmtDate(matches[0].date):'Fecha por confirmar';
+        html+=`<div class="ph"><div class="phl">📅 ${lbl}</div><div class="phln"></div></div>`;
+        html+=matches.map(m=>mcHtml(m,null,false)).join('');
+      });
+    }else{
+      html+=`<div class="empty"><div class="ei">📅</div><p style="font-size:12px;color:var(--t3)">Sin partidos pendientes en esta fase</p></div>`;
+    }
+    if(played.length){
+      html+=`<details><summary style="font-size:9px;color:var(--t4);font-weight:800;cursor:pointer;letter-spacing:1px;text-transform:uppercase;padding:8px 0;list-style:none">▸ VER RESULTADOS ANTERIORES (${played.length})</summary><div style="margin-top:4px">${played.map(m=>mcHtml(m,null,false)).join('')}</div></details>`;
+    }
   }
   document.getElementById('mx-list').innerHTML=html;
   startTickers('mx',ms);
@@ -788,7 +884,7 @@ function doReg(){
   const passRaw=(document.getElementById('reg-pass')||{}).value||'';
   if(!name){showT('Ingresa tu nombre','err');return;}
   if(passRaw.length>0&&passRaw.length<4){showT('Contraseña mínimo 4 caracteres','err');return;}
-  if(G.p.find(p=>p.name.toLowerCase()===name.toLowerCase())){showT('Ese nombre ya existe','err');return;}
+  if(G.p.find(p=>p.name.toLowerCase()===name.toLowerCase())){showT('Ese nombre ya existe — usá "Iniciar sesión" abajo ↓','err');closeM('m-reg');setTimeout(openLoginModal,600);return;}
   _doRegBusy=true;
   const p={id:Date.now().toString(),name,emoji:selEmoji};
   if(passRaw)p.pass=simpleHash(passRaw);
