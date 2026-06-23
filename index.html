@@ -406,6 +406,13 @@ select.fi{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
 </div></div>
 <!-- MODAL RESULT -->
 <div id="m-res" class="ovl off"><div class="modal"><div class="mh"></div><div class="mtitle">📋 Ingresar Resultado</div><div id="m-res-body"></div></div></div>
+<!-- MODAL GOLES ADMIN -->
+<div id="m-goles" class="ovl off"><div class="modal">
+  <div class="mh"></div>
+  <div class="mtitle">⚽ Tabla de Goleadores</div>
+  <div id="m-goles-body"></div>
+  <div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-p" onclick="saveGoles()">Guardar</button><button class="btn btn-g" style="flex:1" onclick="closeM('m-goles')">Cancelar</button></div>
+</div></div>
 <!-- MODAL PRIZES -->
 <div id="m-pz" class="ovl off"><div class="modal">
   <div class="mh"></div>
@@ -574,11 +581,21 @@ const PRESET=[
   // ═══ GRAN FINAL (p103) – MetLife Stadium, NJ ═══
   {round:'final',f1:'🏆',t1:'G. Semi M101',f2:'🏆',t2:'G. Semi M102',date:'2026-07-19T22:00'},
 ];
-let G={p:[],m:[],preds:{},prizes:{p1:'',p2:'',p3:'',p4:''}};
+let G={p:[],m:[],preds:{},prizes:{p1:'',p2:'',p3:'',p4:''},goles:[]};
 let aOpen=false,curRnd='grupos',resPen=null,resHalf=null,me=null,selEmoji='⚽',tickers=[],refreshT=null;
+const GOLES_INIT=[
+  {name:'Lionel Messi',team:'Argentina',flag:'🇦🇷',goals:5},
+  {name:'Kylian Mbappé',team:'Francia',flag:'🇫🇷',goals:4},
+  {name:'Erling Haaland',team:'Noruega',flag:'🇳🇴',goals:4},
+  {name:'Deniz Undav',team:'Alemania',flag:'🇩🇪',goals:3},
+  {name:'Jonathan David',team:'Canadá',flag:'🇨🇦',goals:3},
+  {name:'Elijah Just',team:'EE.UU.',flag:'🇺🇸',goals:2},
+  {name:'Harry Kane',team:'Inglaterra',flag:'🏴󠁧󠁢󠁥󠁮󠁧󠁿',goals:2},
+];
 function loadG(){
   try{const s=localStorage.getItem('cod26');if(s){G={...G,...JSON.parse(s)};if(!G.prizes)G.prizes={p1:'',p2:'',p3:'',p4:''};}}catch(e){}
   if(!G.m)G.m=[];
+  if(!G.goles||!G.goles.length){G.goles=GOLES_INIT.map(g=>({...g}));}
   const _eIds=new Set(G.m.map(m=>m.id));
   const _toAdd=PRESET.map((m,i)=>({pen:null,firstScorer:null,halfGoal:null,...m,id:'p'+i,rg1:'rg1' in m?m.rg1:null,rg2:'rg2' in m?m.rg2:null})).filter(m=>!_eIds.has(m.id));
   if(_toAdd.length){G.m=[...G.m,..._toAdd];saveG();}
@@ -760,8 +777,11 @@ function standingsHtml(grp,teams,qualTop2,qualThirds){
 function renderMX(){
   const rp=[...new Set(G.m.map(m=>m.round))];
   const ord=RND_ORD.filter(r=>rp.includes(r));
-  if(!ord.includes(curRnd)&&ord.length)curRnd=ord[0];
-  document.getElementById('rtabs').innerHTML=ord.map(r=>`<button class="rtab ${r===curRnd?'on':''}" onclick="swRnd('${r}')">${RND_S[r]}</button>`).join('');
+  if(curRnd!=='goleadores'&&!ord.includes(curRnd)&&ord.length)curRnd=ord[0];
+  document.getElementById('rtabs').innerHTML=
+    ord.map(r=>`<button class="rtab ${r===curRnd?'on':''}" onclick="swRnd('${r}')">${RND_S[r]}</button>`).join('')+
+    `<button class="rtab ${'goleadores'===curRnd?'on':''}" onclick="swRnd('goleadores')" style="${'goleadores'===curRnd?'color:#22c55e;border-color:rgba(34,197,94,.4);background:rgba(34,197,94,.1)':''}">⚽ Goles</button>`;
+  if(curRnd==='goleadores'){document.getElementById('mx-list').innerHTML=goleadoresHtml();return;}
   const ms=G.m.filter(m=>m.round===curRnd);
   if(!ms.length){document.getElementById('mx-list').innerHTML=`<div class="empty"><div class="ei">📅</div><p style="font-size:12px;color:var(--t3)">Sin partidos en esta fase</p></div>`;return;}
   const today=new Date().toISOString().slice(0,10);
@@ -808,6 +828,56 @@ function renderMX(){
   startTickers('mx',ms);
 }
 function swRnd(r){curRnd=r;killT();renderMX();}
+// ─── GOLEADORES ───
+function goleadoresHtml(){
+  if(!G.goles||!G.goles.length)return '<div class="empty"><div class="ei">⚽</div><p style="font-size:12px;color:var(--t3)">Sin datos de goleadores aún</p></div>';
+  const sorted=[...G.goles].sort((a,b)=>b.goals-a.goals||a.name.localeCompare(b.name));
+  const maxG=sorted[0]?.goals||1;
+  const medals=['🥇','🥈','🥉'];
+  const now=new Date();
+  const dateStr=now.toLocaleDateString('es',{day:'numeric',month:'long',year:'numeric'});
+  let html=`<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--t4);margin-bottom:12px">Actualizado al ${dateStr}</div>`;
+  let pos=1,lastG=-1;
+  sorted.forEach((g,i)=>{
+    if(g.goals!==lastG){pos=i+1;lastG=g.goals;}
+    const pct=Math.round((g.goals/maxG)*100);
+    const isTop=pos<=3;
+    const medal=medals[pos-1]||'';
+    const rankEl=medal?`<span style="font-size:18px">${medal}</span>`:`<span style="font-size:14px;font-weight:900;color:var(--t3);min-width:18px;text-align:center">${pos}</span>`;
+    html+=`<div style="background:${isTop?'rgba(34,197,94,.06)':'rgba(255,255,255,.02)'};border:1px solid ${isTop?'rgba(34,197,94,.2)':'rgba(255,255,255,.05)'};border-radius:14px;padding:12px 14px;margin-bottom:7px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:24px;text-align:center;flex-shrink:0">${rankEl}</div>
+        <div style="font-size:22px;flex-shrink:0">${g.flag}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:900;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.name}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:1px">${g.team}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:24px;font-weight:900;color:${isTop?'#22c55e':'var(--t1)'};line-height:1">${g.goals}</div>
+          <div style="font-size:8px;color:var(--t4);font-weight:700;letter-spacing:.5px">GOLES</div>
+        </div>
+      </div>
+      <div style="margin-top:9px;background:rgba(255,255,255,.06);border-radius:100px;height:3px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${isTop?'linear-gradient(90deg,#16a34a,#22c55e)':'rgba(255,255,255,.2)'};border-radius:100px"></div>
+      </div>
+    </div>`;
+  });
+  if(aOpen)html+=`<button class="btn btn-g" style="width:100%;margin-top:8px;font-size:12px" onclick="openGolesModal()">✏️ Editar tabla de goleadores</button>`;
+  return `<div>${html}</div>`;
+}
+function openGolesModal(){openGolesAdminModal();openM('m-goles');}
+function openGolesAdminModal(){
+  const rows=G.goles.map((g,i)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+    <input value="${g.flag}" style="width:38px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:6px;color:#fff;font-size:16px;text-align:center" onchange="G.goles[${i}].flag=this.value">
+    <input value="${g.name}" placeholder="Jugador" style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:6px;color:#fff;font-size:12px" onchange="G.goles[${i}].name=this.value">
+    <input value="${g.team}" placeholder="País" style="width:80px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:6px;color:#fff;font-size:12px" onchange="G.goles[${i}].team=this.value">
+    <input type="number" value="${g.goals}" min="1" max="20" style="width:46px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:6px;color:#fff;font-size:14px;font-weight:900;text-align:center" onchange="G.goles[${i}].goals=+this.value">
+    <button class="btn btn-d btn-sm" onclick="G.goles.splice(${i},1);openGolesAdminModal()">✕</button>
+  </div>`).join('');
+  document.getElementById('m-goles-body').innerHTML=`<div style="font-size:10px;color:var(--t3);margin-bottom:10px">Bandera · Nombre · País · Goles</div>${rows}
+  <button class="btn btn-g" style="width:100%;margin-top:4px;font-size:12px" onclick="G.goles.push({flag:'🏳️',name:'Nuevo jugador',team:'País',goals:1});openGolesAdminModal()">+ Agregar jugador</button>`;
+}
+function saveGoles(){saveG();closeM('m-goles');showT('Goleadores guardados ✅');renderMX();}
 // ─── MATCH CARD ───
 function mcHtml(m,pid,editable){
   const d=done(m),lk=locked(m);
@@ -1070,6 +1140,12 @@ function _renderAdInner(){
   ${G.m.map(m=>{const d=done(m);return`<div class="adm-item"><div style="flex:1;min-width:0"><div style="font-size:7.5px;font-weight:800;letter-spacing:1.5px;color:var(--p);text-transform:uppercase;margin-bottom:2px">${m.group?'Grupo '+m.group+' · ':''} ${RND_N[m.round]}</div><div style="font-size:12px;font-weight:700;color:var(--t1)">${m.f1} ${m.t1} vs ${m.t2} ${m.f2}</div>${m.date?`<div style="font-size:9px;color:var(--t3);margin-top:2px">📅 ${fmtDate(m.date)} · ${fmtTime(m.date)}</div>`:''}${d?`<div style="font-size:9px;color:#6ee7b7;margin-top:2px">✅ ${m.rg1}–${m.rg2}${m.firstScorer?' · ⚽ '+m.firstScorer:''}${m.halfGoal!==null?' · 🕐 '+(m.halfGoal?'Sí':'No'):''}</div>`:''}</div><div style="display:flex;gap:5px;flex-shrink:0">${!d?`<button class="btn btn-s btn-sm" onclick="openRes('${m.id}')">Resultado</button>`:`<button class="btn btn-g btn-sm" onclick="openRes('${m.id}',true)">Editar</button>`}<button class="btn btn-d btn-sm" onclick="rmM('${m.id}')">✕</button></div></div>`;}).join('')}
   <div class="div"></div>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+    <div class="ph" style="margin:0;flex:1"><div class="phl">⚽ Goleadores (${G.goles?G.goles.length:0})</div><div class="phln"></div></div>
+    <button class="btn btn-g btn-sm" style="color:#22c55e;border-color:rgba(34,197,94,.25);margin-left:9px;flex-shrink:0" onclick="openGolesModal()">Editar</button>
+  </div>
+  <div style="font-size:11px;color:var(--t3);padding:2px 0 13px">${G.goles&&G.goles.length?[...G.goles].sort((a,b)=>b.goals-a.goals).slice(0,3).map(g=>`${g.flag} ${g.name} (${g.goals})`).join(' · '):'Sin goleadores cargados'}</div>
+  <div class="div"></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
     <div class="ph" style="margin:0;flex:1"><div class="phl">🎁 Premios</div><div class="phln"></div></div>
     <button class="btn btn-g btn-sm" style="color:var(--gold);border-color:rgba(245,158,11,.25);margin-left:9px;flex-shrink:0" onclick="openPrizesM()">Configurar</button>
   </div>
@@ -1136,7 +1212,7 @@ function addMatch(){
 }
 function rmP(id){if(!confirm('¿Eliminar participante?'))return;G.p=G.p.filter(p=>p.id!==id);delete G.preds[id];if(me?.id===id){me=null;saveMe();}saveG();renderAd();showT('✅ Eliminado');}
 function rmM(id){if(!confirm('¿Eliminar partido?'))return;G.m=G.m.filter(m=>m.id!==id);Object.keys(G.preds).forEach(pid=>{delete G.preds[pid][id];});saveG();renderAd();showT('✅ Partido eliminado');}
-function resetAll(){if(!confirm('⚠️ ¿Borrar TODOS los datos?'))return;if(!confirm('🚨 Última confirmación'))return;G={p:[],m:[],preds:{},prizes:{p1:'',p2:'',p3:'',p4:''}};G.m=PRESET.map((m,i)=>({id:'p'+i,...m,rg1:null,rg2:null,pen:null,firstScorer:null,halfGoal:null}));me=null;localStorage.removeItem('cod26-me');saveG();renderAd();showT('🗑️ Datos borrados');}
+function resetAll(){if(!confirm('⚠️ ¿Borrar TODOS los datos?'))return;if(!confirm('🚨 Última confirmación'))return;G={p:[],m:[],preds:{},prizes:{p1:'',p2:'',p3:'',p4:''},goles:GOLES_INIT.map(g=>({...g}))};G.m=PRESET.map((m,i)=>({id:'p'+i,...m,rg1:null,rg2:null,pen:null,firstScorer:null,halfGoal:null}));me=null;localStorage.removeItem('cod26-me');saveG();renderAd();showT('🗑️ Datos borrados');}
 // MODALS
 function openM(id){document.getElementById(id)?.classList.remove('off');}
 function closeM(id){document.getElementById(id)?.classList.add('off');}
@@ -1883,6 +1959,7 @@ function startFirebaseSync(){
     if(data){
       G={...G,...data};
       if(!G.prizes)G.prizes={p1:'',p2:'',p3:'',p4:''};
+      if(!G.goles||!G.goles.length)G.goles=GOLES_INIT.map(g=>({...g}));
       if(!G.p)G.p=[];
       if(!G.m)G.m=[];
       if(!G.preds)G.preds={};
@@ -1904,6 +1981,7 @@ function startFirebaseSync(){
         const oldMe=me;
         G={...G,...d};
         if(!G.prizes)G.prizes={p1:'',p2:'',p3:'',p4:''};
+        if(!G.goles||!G.goles.length)G.goles=GOLES_INIT.map(g=>({...g}));
         if(!G.p)G.p=[];
         _fixPresetErrors();
         const _added2=_mergePreset();
