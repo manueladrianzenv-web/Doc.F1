@@ -507,7 +507,7 @@ const PRESET=[
   {round:'grupos',group:'I',f1:'🇫🇷',t1:'Francia',f2:'🇮🇶',t2:'Irak',date:'2026-06-22T20:00',rg1:3,rg2:0},
   {round:'grupos',group:'I',f1:'🇳🇴',t1:'Noruega',f2:'🇸🇳',t2:'Senegal',date:'2026-06-22T20:00',rg1:3,rg2:2},
   {round:'grupos',group:'J',f1:'🇦🇷',t1:'Argentina',f2:'🇦🇹',t2:'Austria',date:'2026-06-22T22:00',rg1:2,rg2:0},
-  {round:'grupos',group:'J',f1:'🇯🇴',t1:'Jordania',f2:'🇩🇿',t2:'Argelia',date:'2026-06-22T22:00',rg1:1,rg2:0},
+  {round:'grupos',group:'J',f1:'🇯🇴',t1:'Jordania',f2:'🇩🇿',t2:'Argelia',date:'2026-06-22T22:00',rg1:1,rg2:2},
   {round:'grupos',group:'K',f1:'🇵🇹',t1:'Portugal',f2:'🇺🇿',t2:'Uzbekistán',date:'2026-06-23T22:00'},
   {round:'grupos',group:'K',f1:'🇨🇴',t1:'Colombia',f2:'🇨🇩',t2:'R.D. Congo',date:'2026-06-23T22:00'},
   {round:'grupos',group:'L',f1:'🏴󠁧󠁢󠁥󠁮󠁧󠁿',t1:'Inglaterra',f2:'🇬🇭',t2:'Ghana',date:'2026-06-23T20:00'},
@@ -732,17 +732,12 @@ function getQualifiedTeams(st){
       qualTop2.add(sorted[0].name);qualTop2.add(sorted[1].name);
       if(sorted[2])thirds.push({...sorted[2],grp});
     } else {
-      // Detección anticipada: un equipo en top-2 clasificó si el 3ro no puede alcanzarlo
-      // Cada equipo juega 3 partidos en total; calcular cuántos le quedan
-      if(sorted.length>=3){
-        const rem=(t)=>3-t.pl; // partidos restantes
-        sorted.slice(0,2).forEach((top,idx)=>{
-          const challenger=sorted[idx+1]||sorted[n-1];
-          // Máximo de puntos que el retador puede alcanzar
-          const maxChallenger=sorted.slice(idx+1).reduce((best,t)=>Math.max(best,t.pts+rem(t)*3),0);
-          if(top.pts>maxChallenger)qualTop2.add(top.name);
-        });
-      }
+      // Detección anticipada: un equipo clasifica si menos de 2 rivales pueden superarlo en puntos
+      const rem=(t)=>3-t.pl;
+      sorted.forEach((top)=>{
+        const couldBeBetter=sorted.filter(t=>t.name!==top.name&&t.pts+rem(t)*3>top.pts);
+        if(couldBeBetter.length<2)qualTop2.add(top.name);
+      });
     }
   });
   thirds.sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf);
