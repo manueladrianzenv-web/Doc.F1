@@ -1312,7 +1312,7 @@ function donutChart(col,total){
   </svg>`;
 }
 function renderAlbum(){
-  loadAL();updateAlStats();buildAlTabs();renderAlbumGrid();renderAlbumRanking();
+  loadALForUser();updateAlStats();buildAlTabs();renderAlbumGrid();renderAlbumRanking();
 }
 function renderAlbumRanking(){
   const col=alCollected();
@@ -1405,7 +1405,8 @@ const SQUADS={
 };
 let AL={col:{},packs:3};
 function loadAL(){try{const d=JSON.parse(localStorage.getItem('cod26-al'));if(d)AL=d;}catch(e){}}
-function saveAL(){const key='cod26-al'+(ME?'-'+ME:'');localStorage.setItem(key,JSON.stringify(AL));}
+function saveAL(){const key='cod26-al'+(me?.id?'-'+me.id:'');localStorage.setItem(key,JSON.stringify(AL));}
+function loadALForUser(){try{const k='cod26-al'+(me?.id?'-'+me.id:'');const d=JSON.parse(localStorage.getItem(k)||localStorage.getItem('cod26-al'));if(d)AL=d;}catch(e){}}
 loadAL();
 // ─── STAR PLAYERS (trigger celebration) ───
 const STARS=new Set([
@@ -1542,18 +1543,7 @@ function weightedPick(){
   if(Math.random()<pNew&&uncol.length>0)return{...uncol[Math.floor(Math.random()*uncol.length)],isNew:true};
   return{...AL_PLAYERS[Math.floor(Math.random()*AL_TOTAL)],isNew:false};
 }
-function openPack(){
-  if(AL.packs<1){showT('No tenés sobres. ¡Conseguí uno!','err');return;}
-  if(document.getElementById('al-reveal').style.display!=='none'){showT('Guardá primero el sobre actual','err');return;}
-  AL.packs--;AL.packsOpened=(AL.packsOpened||0)+1;
-  const cards=[];
-  for(let i=0;i<5;i++){
-    const p=weightedPick();cards.push(p);
-    if(p.isNew){AL.col[p.id]=true;}
-    else{if(!AL.dups)AL.dups={};AL.dups[p.id]=(AL.dups[p.id]||0)+1;}
-  }
-  saveAL();showReveal(cards);updateAlStats();
-}
+// (openPack v2 más abajo — esta versión eliminada)
 function earnPack(){AL.packs++;saveAL();showT('🎁 ¡Sobre agregado!');updateAlStats();}
 function closeReveal(){document.getElementById('al-reveal').style.display='none';renderAlbumGrid();renderDuplicates();renderAlbumRanking();}
 function showReveal(cards){
@@ -1840,6 +1830,7 @@ function copyYapeNumber(){
   else{showT('Numero: '+num,'ok');}
 }
 function openPackOrYape(){
+  checkDailyRefill();
   if((AL.packs||0)<1){showYapeModal();return;}
   openPack();
 }
@@ -2020,7 +2011,7 @@ function doLogin(){
   const p=G.p.find(x=>x.id===pid);
   if(!p){showT('Usuario no encontrado','err');return;}
   if(p.pass&&p.pass!==simpleHash(pass)){showT('Contraseña incorrecta ❌','err');return;}
-  me=p;saveMe();closeM('m-login');renderPR();
+  me=p;saveMe();loadALForUser();checkDailyRefill();closeM('m-login');renderPR();
   showT('¡Bienvenido/a de vuelta, '+p.name+'! 👋');
 }
 function logAs(pid){
@@ -2033,7 +2024,7 @@ function logAs(pid){
     document.getElementById('login-pass').value='';
     openM('m-login');
   }else{
-    me=p;saveMe();renderPR();showT('¡Hola de vuelta, '+p.name+'!');
+    me=p;saveMe();loadALForUser();checkDailyRefill();renderPR();showT('¡Hola de vuelta, '+p.name+'!');
   }
 }
 function renderFbAdmin(){
